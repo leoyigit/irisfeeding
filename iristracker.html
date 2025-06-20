@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iris Feeding & Weight Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/relativeTime.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/customParseFormat.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 24px; height: 24px;
+            background: #ec4899; cursor: pointer; border-radius: 50%;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 24px; height: 24px; background: #ec4899; cursor: pointer; border-radius: 50%;
+        }
+        #history-modal, #loading-overlay { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+        <div class="text-white text-lg">Saving...</div>
+    </div>
+
+    <div id="app-container" class="max-w-md mx-auto p-4 min-h-screen">
+        <!-- Header Section -->
+        <div class="text-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
+            <h1 id="baby-name" class="text-3xl font-bold text-pink-500">Iris</h1>
+            <p id="age-in-days" class="text-lg text-gray-500 dark:text-gray-400 mt-1">Calculating age...</p>
+        </div>
+
+        <!-- Today's Summary -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 grid grid-cols-2 gap-4 text-center">
+            <div>
+                <h2 class="text-xl font-semibold mb-1">Today's Total</h2>
+                <p id="total-today" class="text-3xl font-bold text-pink-500">0 ml</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400"> <span id="total-count">0</span> feedings</p>
+            </div>
+             <div>
+                <h2 class="text-xl font-semibold mb-1">Latest Weight</h2>
+                <p id="latest-weight" class="text-3xl font-bold text-pink-500">... g</p>
+                 <p class="text-sm text-gray-500 dark:text-gray-400" id="latest-weight-date">No data</p>
+            </div>
+        </div>
+
+        <!-- Add Feeding Form -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-center">Log New Feeding</h2>
+            <form id="feeding-form" class="space-y-4">
+                 <div>
+                    <label for="amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount: <span id="amount-value" class="font-bold text-pink-500">100 ml</span></label>
+                    <input type="range" id="amount" name="amount" min="10" max="200" step="10" value="100" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-2">
+                </div>
+                <div>
+                    <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes (Optional)</label>
+                    <input type="text" id="notes" name="notes" class="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-pink-500 focus:border-pink-500 sm:text-sm p-3" placeholder="e.g., a little fussy">
+                </div>
+                <button type="submit" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Add Feeding</button>
+            </form>
+        </div>
+        
+        <!-- Add Weight Form -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-center">Log Weight</h2>
+            <form id="weight-form" class="flex items-center space-x-2">
+                 <input type="number" id="weight-grams" required class="block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-pink-500 focus:border-pink-500 sm:text-sm p-3" placeholder="Weight in grams">
+                 <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Save</button>
+            </form>
+        </div>
+
+        <!-- Feedings List -->
+        <div>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-center">Today's Logs</h2>
+                <button id="view-history-btn" class="text-sm text-pink-500 font-semibold hover:underline">View History</button>
+            </div>
+            <div id="feedings-list" class="space-y-3">
+                <p id="loading-state" class="text-center text-gray-500">Loading entries...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- History Modal -->
+    <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] m-4 flex flex-col">
+            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                <h2 class="text-xl font-bold">All Entries</h2>
+                <button id="close-history-btn" class="text-gray-500 hover:text-gray-900 dark:hover:text-white">&times;</button>
+            </div>
+            <div id="history-content" class="p-6 overflow-y-auto">
+                <p>Loading history...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- CONFIGURATION ---
+        // !!! IMPORTANT !!! PASTE YOUR GOOGLE APPS SCRIPT URL HERE
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxipmzIIBaq1ulu0wpxLc1lYEH5LCDxFUyq85qvHjD7csyikBdfCYLpBqG5SnZul1Sg/exec'; 
+
+        const BABY_BIRTHDAY = '2025-05-03T00:20:00';
+        const BABY_NAME = 'Iris';
+        
+        dayjs.extend(window.dayjs_plugin_relativeTime);
+        dayjs.extend(window.dayjs_plugin_customParseFormat);
+
+        // --- DOM ELEMENTS ---
+        const babyNameEl = document.getElementById('baby-name');
+        const ageInDaysEl = document.getElementById('age-in-days');
+        const feedingForm = document.getElementById('feeding-form');
+        const amountInput = document.getElementById('amount');
+        const amountValueEl = document.getElementById('amount-value');
+        const notesInput = document.getElementById('notes');
+        const feedingsList = document.getElementById('feedings-list');
+        const totalTodayEl = document.getElementById('total-today');
+        const totalCountEl = document.getElementById('total-count');
+        const loadingStateEl = document.getElementById('loading-state');
+        const weightForm = document.getElementById('weight-form');
+        const weightInput = document.getElementById('weight-grams');
+        const latestWeightEl = document.getElementById('latest-weight');
+        const latestWeightDateEl = document.getElementById('latest-weight-date');
+        const historyModal = document.getElementById('history-modal');
+        const viewHistoryBtn = document.getElementById('view-history-btn');
+        const closeHistoryBtn = document.getElementById('close-history-btn');
+        const historyContent = document.getElementById('history-content');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        let allFeedings = [];
+        let allWeights = [];
+
+        // --- INITIALIZATION ---
+        function main() {
+            if (!SCRIPT_URL) {
+                document.getElementById('app-container').innerHTML = `
+                    <div class="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
+                        <p class="font-bold">Configuration Needed</p>
+                        <p>Please paste your Google Apps Script URL into the SCRIPT_URL variable in the code to get started.</p>
+                    </div>`;
+                return;
+            }
+            
+            babyNameEl.textContent = BABY_NAME;
+            calculateAndDisplayAge();
+            setInterval(calculateAndDisplayAge, 1000 * 60 * 60);
+            amountValueEl.textContent = `${amountInput.value} ml`;
+            
+            loadData();
+        }
+
+        function calculateAndDisplayAge() {
+            const birthDate = dayjs(BABY_BIRTHDAY);
+            const today = dayjs();
+            const days = today.diff(birthDate, 'day');
+            ageInDaysEl.textContent = days >= 0 ? `${days} days old` : `Arriving in ${birthDate.fromNow(true)}!`;
+        }
+        
+        // --- DATA HANDLING ---
+        async function loadData() {
+            try {
+                const response = await fetch(SCRIPT_URL);
+                const data = await response.json();
+                allFeedings = data.feedings || [];
+                allWeights = data.weights || [];
+
+                renderAll();
+            } catch (error) {
+                console.error("Error loading data:", error);
+                loadingStateEl.textContent = "Could not load data from Google Sheet.";
+            }
+        }
+        
+        async function saveData(payload) {
+            loadingOverlay.style.display = 'flex';
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Important for Apps Script
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                // After saving, reload all data from the sheet to ensure sync
+                await loadData();
+            } catch (error) {
+                console.error("Error saving data:", error);
+                alert("Could not save data. Please check your connection and setup.");
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        async function addFeedingEntry(e) {
+            e.preventDefault();
+            const newEntry = {
+                type: 'feeding',
+                amount: parseInt(amountInput.value),
+                notes: notesInput.value.trim()
+            };
+            await saveData(newEntry);
+            feedingForm.reset();
+            amountValueEl.textContent = `100 ml`;
+            amountInput.value = 100;
+        }
+
+        async function addWeightEntry(e) {
+            e.preventDefault();
+            if (!weightInput.value) return;
+            const newWeight = {
+                type: 'weight',
+                grams: parseInt(weightInput.value)
+            };
+            await saveData(newWeight);
+            weightForm.reset();
+        }
+
+        // --- RENDERING ---
+        function renderAll() {
+            renderTodaysFeedings();
+            renderLatestWeight();
+        }
+
+        function renderTodaysFeedings() {
+            const today = dayjs().format('YYYY-MM-DD');
+            const todaysFeedings = allFeedings
+                .filter(f => dayjs(f.timestamp).format('YYYY-MM-DD') === today)
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            feedingsList.innerHTML = '';
+            loadingStateEl.style.display = todaysFeedings.length === 0 ? 'block' : 'none';
+            loadingStateEl.textContent = "No feedings logged for today.";
+            
+            let totalAmount = 0;
+            todaysFeedings.forEach(f => {
+                totalAmount += f.amount;
+                feedingsList.innerHTML += `
+                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center animate-fade-in">
+                        <div>
+                            <p class="font-semibold">${f.amount} ml</p>
+                            ${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('h:mm A')}</p>
+                    </div>`;
+            });
+            totalTodayEl.textContent = `${totalAmount} ml`;
+            totalCountEl.textContent = todaysFeedings.length;
+        }
+
+        function renderLatestWeight() {
+            if (allWeights.length > 0) {
+                const sortedWeights = allWeights.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                const latestWeight = sortedWeights[0];
+                latestWeightEl.textContent = `${latestWeight.grams} g`;
+                latestWeightDateEl.textContent = dayjs(latestWeight.timestamp).format('MMM D, YYYY');
+            } else {
+                 latestWeightEl.textContent = `... g`;
+                 latestWeightDateEl.textContent = "No data";
+            }
+        }
+        
+        function showHistory() {
+            historyModal.style.display = 'flex';
+            historyContent.innerHTML = '';
+
+            const sortedFeedings = allFeedings.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const groupedByDate = sortedFeedings.reduce((acc, feed) => {
+                const date = dayjs(feed.timestamp).format('YYYY-MM-DD');
+                if (!acc[date]) acc[date] = [];
+                acc[date].push(feed);
+                return acc;
+            }, {});
+
+            const sortedDates = Object.keys(groupedByDate).sort().reverse();
+
+            if (sortedDates.length === 0) {
+                historyContent.innerHTML = '<p>No feeding history found.</p>';
+                return;
+            }
+
+            sortedDates.forEach(date => {
+                const dayTotal = groupedByDate[date].reduce((sum, feed) => sum + feed.amount, 0);
+                
+                 historyContent.innerHTML += `
+                    <div class="mb-6">
+                        <div class="mb-4">
+                           <h3 class="font-bold text-lg">${dayjs(date).format('dddd, MMMM D')}</h3>
+                           <p class="text-sm text-gray-500 dark:text-gray-400">Total: ${dayTotal} ml (${groupedByDate[date].length} feedings)</p>
+                        </div>
+                        <div class="border dark:border-gray-600 rounded-lg">
+                           ${groupedByDate[date].map(f => `
+                             <div class="border-t dark:border-gray-600 p-3 flex justify-between items-center">
+                                <div>
+                                    <p class="font-semibold">${f.amount} ml</p>
+                                    ${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('h:mm A')}</p>
+                            </div>
+                           `).join('')}
+                        </div>
+                    </div>`;
+            });
+        }
+
+        // --- EVENT LISTENERS ---
+        amountInput.addEventListener('input', (e) => amountValueEl.textContent = `${e.target.value} ml`);
+        feedingForm.addEventListener('submit', addFeedingEntry);
+        weightForm.addEventListener('submit', addWeightEntry);
+        viewHistoryBtn.addEventListener('click', showHistory);
+        closeHistoryBtn.addEventListener('click', () => historyModal.style.display = 'none');
+        
+        document.addEventListener('DOMContentLoaded', main);
+    </script>
+</body>
+</html>
