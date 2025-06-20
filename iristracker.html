@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iris Feeding & Weight Tracker</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23EC4899'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5V19h2v-2.5c1.93-.01 3.5-1.57 3.5-3.5S14.93 9.5 13 9.5v2c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5H11v-3c0-.83-.67-1.5-1.5-1.5S8 9.67 8 10.5v1H6V7h2v1.5c.9-.89 2.13-1.5 3.5-1.5 2.21 0 4 1.79 4 4s-1.79 4-4 4h-1.5z'/></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
@@ -94,7 +95,7 @@
     <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] m-4 flex flex-col">
             <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
-                <h2 class="text-xl font-bold">All Entries</h2>
+                <h2 class="text-xl font-bold">Full History</h2>
                 <button id="close-history-btn" class="text-gray-500 hover:text-gray-900 dark:hover:text-white">&times;</button>
             </div>
             <div id="history-content" class="p-6 overflow-y-auto">
@@ -105,7 +106,6 @@
 
     <script type="module">
         // --- CONFIGURATION ---
-        // !!! IMPORTANT !!! PASTE YOUR GOOGLE APPS SCRIPT URL HERE
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxipmzIIBaq1ulu0wpxLc1lYEH5LCDxFUyq85qvHjD7csyikBdfCYLpBqG5SnZul1Sg/exec'; 
 
         const BABY_BIRTHDAY = '2025-05-03T00:20:00';
@@ -188,7 +188,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                // After saving, reload all data from the sheet to ensure sync
                 await loadData();
             } catch (error) {
                 console.error("Error saving data:", error);
@@ -268,8 +267,10 @@
         
         function showHistory() {
             historyModal.style.display = 'flex';
-            historyContent.innerHTML = '';
+            historyContent.innerHTML = ''; // Clear previous content
 
+            // Render Feeding History
+            historyContent.innerHTML += `<h3 class="text-xl font-bold mb-4">Feeding History</h3>`;
             const sortedFeedings = allFeedings.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
             const groupedByDate = sortedFeedings.reduce((acc, feed) => {
                 const date = dayjs(feed.timestamp).format('YYYY-MM-DD');
@@ -277,36 +278,53 @@
                 acc[date].push(feed);
                 return acc;
             }, {});
-
             const sortedDates = Object.keys(groupedByDate).sort().reverse();
 
             if (sortedDates.length === 0) {
-                historyContent.innerHTML = '<p>No feeding history found.</p>';
-                return;
+                historyContent.innerHTML += '<p>No feeding history found.</p>';
+            } else {
+                sortedDates.forEach(date => {
+                    const dayTotal = groupedByDate[date].reduce((sum, feed) => sum + feed.amount, 0);
+                    historyContent.innerHTML += `
+                        <div class="mb-6">
+                            <div class="mb-2">
+                               <h4 class="font-bold text-lg">${dayjs(date).format('dddd, MMMM D')}</h4>
+                               <p class="text-sm text-gray-500 dark:text-gray-400">Total: ${dayTotal} ml (${groupedByDate[date].length} feedings)</p>
+                            </div>
+                            <div class="border dark:border-gray-600 rounded-lg">
+                               ${groupedByDate[date].map(f => `
+                                 <div class="border-t dark:border-gray-600 p-3 flex justify-between items-center">
+                                    <div>
+                                        <p class="font-semibold">${f.amount} ml</p>
+                                        ${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}
+                                    </div>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('h:mm A')}</p>
+                                </div>
+                               `).join('')}
+                            </div>
+                        </div>`;
+                });
             }
 
-            sortedDates.forEach(date => {
-                const dayTotal = groupedByDate[date].reduce((sum, feed) => sum + feed.amount, 0);
-                
-                 historyContent.innerHTML += `
-                    <div class="mb-6">
-                        <div class="mb-4">
-                           <h3 class="font-bold text-lg">${dayjs(date).format('dddd, MMMM D')}</h3>
-                           <p class="text-sm text-gray-500 dark:text-gray-400">Total: ${dayTotal} ml (${groupedByDate[date].length} feedings)</p>
-                        </div>
-                        <div class="border dark:border-gray-600 rounded-lg">
-                           ${groupedByDate[date].map(f => `
-                             <div class="border-t dark:border-gray-600 p-3 flex justify-between items-center">
-                                <div>
-                                    <p class="font-semibold">${f.amount} ml</p>
-                                    ${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}
-                                </div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('h:mm A')}</p>
-                            </div>
-                           `).join('')}
-                        </div>
-                    </div>`;
-            });
+            // Render Weight History
+            historyContent.innerHTML += `<h3 class="text-xl font-bold mt-8 mb-4">Weight History</h3>`;
+            const weightContainer = document.createElement('div');
+            
+            if (allWeights.length === 0) {
+                weightContainer.innerHTML = '<p>No weight history found.</p>';
+            } else {
+                const sortedWeights = allWeights.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                const weightList = document.createElement('div');
+                weightList.className = 'border dark:border-gray-600 rounded-lg';
+                weightList.innerHTML = sortedWeights.map(w => `
+                    <div class="border-t dark:border-gray-600 p-3 flex justify-between items-center">
+                        <p class="font-semibold">${w.grams} g</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(w.timestamp).format('MMM D, YYYY')}</p>
+                    </div>
+                `).join('');
+                weightContainer.appendChild(weightList);
+            }
+            historyContent.appendChild(weightContainer);
         }
 
         // --- EVENT LISTENERS ---
