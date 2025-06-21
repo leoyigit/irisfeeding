@@ -25,6 +25,11 @@
             width: 24px; height: 24px; background: #ec4899; cursor: pointer; border-radius: 50%;
         }
         #history-modal, #loading-overlay { display: none; }
+        /* --- ADDED --- */
+        #age-in-days {
+            cursor: pointer;
+            user-select: none; /* Prevents text selection on click */
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
@@ -34,13 +39,11 @@
     </div>
 
     <div id="app-container" class="max-w-md mx-auto p-4 min-h-screen">
-        <!-- Header Section -->
         <div class="text-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
             <h1 id="baby-name" class="text-3xl font-bold text-pink-500">Iris</h1>
-            <p id="age-in-days" class="text-lg text-gray-500 dark:text-gray-400 mt-1">Calculating age...</p>
+            <p id="age-in-days" class="text-lg text-gray-500 dark:text-gray-400 mt-1" title="Click to change format">Calculating age...</p>
         </div>
 
-        <!-- Today's Summary -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 grid grid-cols-2 gap-4 text-center">
             <div>
                 <h2 class="text-xl font-semibold mb-1">Today's Total</h2>
@@ -54,7 +57,6 @@
             </div>
         </div>
 
-        <!-- Add Feeding Form -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4 text-center">Log New Feeding</h2>
             <form id="feeding-form" class="space-y-4">
@@ -70,7 +72,6 @@
             </form>
         </div>
         
-        <!-- Add Weight Form -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4 text-center">Log Weight</h2>
             <form id="weight-form" class="flex items-center space-x-2">
@@ -79,7 +80,6 @@
             </form>
         </div>
 
-        <!-- Feedings List -->
         <div>
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold text-center">Today's Logs</h2>
@@ -91,7 +91,6 @@
         </div>
     </div>
     
-    <!-- History Modal -->
     <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] m-4 flex flex-col">
             <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
@@ -138,6 +137,11 @@
         let allFeedings = [];
         let allWeights = [];
 
+        // --- NEW: Age display state ---
+        const ageFormats = ['days', 'months-days', 'weeks-days', 'hours', 'minutes', 'seconds'];
+        let currentAgeFormatIndex = 0;
+
+
         // --- INITIALIZATION ---
         function main() {
             if (!SCRIPT_URL) {
@@ -151,17 +155,58 @@
             
             babyNameEl.textContent = BABY_NAME;
             calculateAndDisplayAge();
-            setInterval(calculateAndDisplayAge, 1000 * 60 * 60);
+            // This interval will update the age in whatever format is currently selected
+            setInterval(calculateAndDisplayAge, 1000 * 60); // Update every minute for more timely changes
             amountValueEl.textContent = `${amountInput.value} ml`;
             
             loadData();
         }
 
+        // --- MODIFIED: Age Calculation Function ---
         function calculateAndDisplayAge() {
             const birthDate = dayjs(BABY_BIRTHDAY);
-            const today = dayjs();
-            const days = today.diff(birthDate, 'day');
-            ageInDaysEl.textContent = days >= 0 ? `${days} days old` : `Arriving in ${birthDate.fromNow(true)}!`;
+            const now = dayjs();
+
+            if (now.isBefore(birthDate)) {
+                ageInDaysEl.textContent = `Arriving in ${birthDate.fromNow(true)}!`;
+                return;
+            }
+
+            let ageText = '';
+            const format = ageFormats[currentAgeFormatIndex];
+
+            switch (format) {
+                case 'months-days':
+                    const months = now.diff(birthDate, 'month');
+                    const dateAfterMonths = birthDate.add(months, 'month');
+                    const remainingDaysForMonths = now.diff(dateAfterMonths, 'day');
+                    ageText = `${months} month${months !== 1 ? 's' : ''}, ${remainingDaysForMonths} day${remainingDaysForMonths !== 1 ? 's' : ''}`;
+                    break;
+                case 'weeks-days':
+                    const totalDaysForWeeks = now.diff(birthDate, 'day');
+                    const weeks = Math.floor(totalDaysForWeeks / 7);
+                    const remainingDaysForWeeks = totalDaysForWeeks % 7;
+                    ageText = `${weeks} week${weeks !== 1 ? 's' : ''}, ${remainingDaysForWeeks} day${remainingDaysForWeeks !== 1 ? 's' : ''}`;
+                    break;
+                case 'hours':
+                    const hours = now.diff(birthDate, 'hour');
+                    ageText = `${hours.toLocaleString()} hours`;
+                    break;
+                case 'minutes':
+                    const minutes = now.diff(birthDate, 'minute');
+                    ageText = `${minutes.toLocaleString()} minutes`;
+                    break;
+                case 'seconds':
+                    const seconds = now.diff(birthDate, 'second');
+                    ageText = `${seconds.toLocaleString()} seconds`;
+                    break;
+                case 'days':
+                default:
+                    const days = now.diff(birthDate, 'day');
+                    ageText = `${days} days old`;
+                    break;
+            }
+            ageInDaysEl.textContent = ageText;
         }
         
         // --- DATA HANDLING ---
@@ -333,6 +378,12 @@
         weightForm.addEventListener('submit', addWeightEntry);
         viewHistoryBtn.addEventListener('click', showHistory);
         closeHistoryBtn.addEventListener('click', () => historyModal.style.display = 'none');
+        
+        // --- NEW: Event listener for age display ---
+        ageInDaysEl.addEventListener('click', () => {
+            currentAgeFormatIndex = (currentAgeFormatIndex + 1) % ageFormats.length;
+            calculateAndDisplayAge();
+        });
         
         document.addEventListener('DOMContentLoaded', main);
     </script>
