@@ -19,6 +19,7 @@
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; background: #ec4899; cursor: pointer; border-radius: 50%; }
         #history-modal, #loading-overlay, #edit-modal, #insight-detail-modal, #weight-modal { display: none; }
         #age-in-days, #insight-section, #latest-weight-card { cursor: pointer; user-select: none; }
+        .arrow-icon svg { transition: transform 0.2s ease-in-out; }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
@@ -39,28 +40,14 @@
             <p id="daily-insight-text" class="text-sm text-white/90 dark:text-pink-200"></p>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 grid grid-cols-2 gap-4 text-center">
-            <div>
-                <h2 class="text-xl font-semibold mb-1">Today's Total</h2>
-                <p id="total-today" class="text-3xl font-bold text-pink-500"></p>
-                <p id="total-summary-subtitle" class="text-sm text-gray-500 dark:text-gray-400"></p>
-            </div>
-            <div id="latest-weight-card" class="transition hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg p-2 -m-2">
-                <h2 class="text-xl font-semibold mb-1">Latest Weight</h2>
-                <p id="latest-weight" class="text-3xl font-bold text-pink-500"></p>
-                 <p class="text-sm text-gray-500 dark:text-gray-400" id="latest-weight-date"></p>
-            </div>
+            <div><h2 class="text-xl font-semibold mb-1">Today's Total</h2><p id="total-today" class="text-3xl font-bold text-pink-500"></p><p id="total-summary-subtitle" class="text-sm text-gray-500 dark:text-gray-400"></p></div>
+            <div id="latest-weight-card" class="transition hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg p-2 -m-2"><h2 class="text-xl font-semibold mb-1">Latest Weight</h2><p id="latest-weight" class="text-3xl font-bold text-pink-500"></p><p class="text-sm text-gray-500 dark:text-gray-400" id="latest-weight-date"></p></div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4 text-center">Add New Feeding</h2>
             <form id="feeding-form" class="space-y-4">
-                 <div>
-                    <label for="amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount: <span id="amount-value" class="font-bold text-pink-500">100 ml</span></label>
-                    <input type="range" id="amount" name="amount" min="10" max="200" step="10" value="100" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-2">
-                </div>
-                <div>
-                    <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
-                    <input type="text" id="notes" name="notes" class="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-3" placeholder="e.g., a little fussy">
-                </div>
+                 <div><label for="amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount: <span id="amount-value" class="font-bold text-pink-500">100 ml</span></label><input type="range" id="amount" name="amount" min="10" max="200" step="10" value="100" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-2"></div>
+                <div><label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label><input type="text" id="notes" name="notes" class="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-3" placeholder="e.g., a little fussy"></div>
                 <button type="submit" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-lg">Add Feeding</button>
             </form>
         </div>
@@ -85,37 +72,19 @@
         dayjs.extend(window.dayjs_plugin_customParseFormat);
         dayjs.extend(window.dayjs_plugin_isSameOrBefore);
 
+        // --- GLOBAL STATE ---
         let allFeedings = [], allWeights = [], allTips = [], weightChart = null;
-        const ageFormats = ['days', 'months-days', 'weeks-days'];
+        const ageFormats = ['days', 'months-days', 'weeks-days', 'hours', 'minutes', 'seconds'];
         let currentAgeFormatIndex = 0;
+        let ageUpdateInterval = null;
 
+        // --- ICON DEFINITIONS ---
         const sunIcon = `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>`;
         const moonIcon = `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>`;
         const lightbulbIcon = `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>`;
-
-        // --- THEME HANDLING ---
-        const applyTheme = (theme) => {
-            const themeToggleBtn = document.getElementById('theme-toggle');
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-                if (themeToggleBtn) themeToggleBtn.innerHTML = sunIcon;
-            } else {
-                document.documentElement.classList.remove('dark');
-                if (themeToggleBtn) themeToggleBtn.innerHTML = moonIcon;
-            }
-        };
-        const toggleTheme = () => {
-            const currentTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
-            localStorage.setItem('theme', currentTheme);
-            applyTheme(currentTheme);
-        };
-        const setupTheme = () => {
-            const savedTheme = localStorage.getItem('theme');
-            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            applyTheme(savedTheme || (systemPrefersDark ? 'dark' : 'light'));
-        };
-
-        // --- ASYNC DATA OPERATIONS ---
+        const chevronDownIcon = `<svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>`;
+        
+        // --- ASYNC DATA & API FUNCTIONS ---
         async function loadData() {
             try {
                 const response = await fetch(SCRIPT_URL);
@@ -124,51 +93,31 @@
                 allFeedings = data.feedings || [];
                 allWeights = data.weights || [];
                 allTips = data.tips || [];
-                renderAll();
-            } catch (error) {
-                console.error("ERROR LOADING DATA:", error);
-                document.getElementById('app-container').innerHTML = `<div class="p-4 bg-red-100 border-l-4 border-red-500 text-red-700"><p class="font-bold">Fatal Error</p><p>${error.message}</p></div>`;
-            }
+                renderAllUI();
+            } catch (error) { console.error("ERROR LOADING DATA:", error); document.getElementById('app-container').innerHTML = `<div class="p-4 bg-red-100"><p class="font-bold">Fatal Error</p><p>${error.message}</p></div>`; }
         }
         async function saveData(payload) {
             document.getElementById('loading-overlay').style.display = 'flex';
             try {
                 await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                setTimeout(() => {
-                    loadData();
-                    document.getElementById('loading-overlay').style.display = 'none';
-                }, 1500);
-            } catch (error) {
-                console.error("Error saving data:", error);
-                alert("Could not save data.");
-                document.getElementById('loading-overlay').style.display = 'none';
-            }
+                setTimeout(() => { loadData(); document.getElementById('loading-overlay').style.display = 'none'; }, 1500);
+            } catch (error) { console.error("Error saving data:", error); alert("Could not save data."); document.getElementById('loading-overlay').style.display = 'none'; }
         }
 
-        // --- UI RENDERING ---
-        function renderAll() {
+        // --- UI RENDERING FUNCTIONS ---
+        function renderAllUI() {
             renderDailyInsight();
             renderTodaysFeedings();
             renderLatestWeight();
         }
         function renderDailyInsight() {
-            const insightSection = document.getElementById('insight-section');
-            const insightTextEl = document.getElementById('daily-insight-text');
-            if (!allTips || allTips.length === 0) { insightSection.style.display = 'none'; return; }
-            const today = dayjs();
-            const tipForToday = allTips.find(tip => dayjs(tip.date).isSame(today, 'day'));
-            if (tipForToday) {
-                insightTextEl.textContent = tipForToday.short;
-                insightSection.dataset.expandedText = tipForToday.expanded || tipForToday.short;
-                insightSection.style.display = 'block';
-            } else {
-                insightSection.style.display = 'none';
-            }
+            const insightSection = document.getElementById('insight-section'), insightTextEl = document.getElementById('daily-insight-text');
+            if (!allTips || !insightSection) return;
+            const tipForToday = allTips.find(tip => dayjs(tip.date).isSame(dayjs(), 'day'));
+            if (tipForToday) { insightTextEl.textContent = tipForToday.short; insightSection.dataset.expandedText = tipForToday.expanded || tipForToday.short; insightSection.style.display = 'block'; } else { insightSection.style.display = 'none'; }
         }
         function renderTodaysFeedings() {
-            const list = document.getElementById('feedings-list');
-            const totalEl = document.getElementById('total-today');
-            const subtitleEl = document.getElementById('total-summary-subtitle');
+            const list = document.getElementById('feedings-list'), totalEl = document.getElementById('total-today'), subtitleEl = document.getElementById('total-summary-subtitle');
             const todaysFeedings = allFeedings.filter(f => dayjs(f.timestamp).isSame(dayjs(), 'day')).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
             const totalAmount = todaysFeedings.reduce((sum, f) => sum + f.amount, 0);
             list.innerHTML = todaysFeedings.length ? todaysFeedings.map(createFeedingHTML).join('') : `<p class="text-center text-gray-500 dark:text-gray-400">No feedings logged for today.</p>`;
@@ -176,66 +125,45 @@
             subtitleEl.textContent = `${todaysFeedings.length} feedings`;
         }
         function renderLatestWeight() {
-            const weightEl = document.getElementById('latest-weight');
-            const dateEl = document.getElementById('latest-weight-date');
+            const weightEl = document.getElementById('latest-weight'), dateEl = document.getElementById('latest-weight-date');
             if (allWeights.length > 0) {
                 const latest = [...allWeights].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
                 weightEl.textContent = `${latest.grams} g`;
                 dateEl.textContent = dayjs(latest.timestamp).format('MMM D, HH:mm');
-            } else {
-                weightEl.textContent = `- g`; dateEl.textContent = "No data";
-            }
+            } else { weightEl.textContent = `- g`; dateEl.textContent = "No data"; }
         }
-        const createFeedingHTML = (f) => `<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-start animate-fade-in"><div><p class="font-semibold">${f.amount} ml</p>${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}</div><div class="flex items-center space-x-2 ml-2"><p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('HH:mm')}</p><button class="edit-btn p-1 text-gray-400 hover:text-blue-500" data-id="${f.timestamp}" data-amount="${f.amount}" data-notes="${f.notes || ''}"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/></svg></button></div></div>`;
+        const createFeedingHTML = (f) => `<div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg flex justify-between items-start animate-fade-in"><div><p class="font-semibold">${f.amount} ml</p>${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}</div><div class="flex items-center space-x-2 ml-2"><p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('HH:mm')}</p><button class="edit-btn p-1 text-gray-400 hover:text-blue-500" data-id="${f.timestamp}" data-amount="${f.amount}" data-notes="${f.notes || ''}"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/></svg></button></div></div>`;
         
-        // --- HISTORY MODAL (FIXED) ---
         function showHistory() {
             const historyContent = document.getElementById('history-content');
-            historyContent.innerHTML = ''; // Clear previous content
-
-            // Section 1: Weight History
-            historyContent.innerHTML += `<h3 class="text-xl font-bold mb-2">Weight History</h3>`;
-            const sortedWeights = [...allWeights].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
-            if (sortedWeights.length > 0) {
-                // Show chart if there are 2 or more entries
-                if (sortedWeights.length > 1) {
-                    const chartCanvas = document.createElement('canvas');
-                    chartCanvas.style.marginBottom = '20px';
-                    historyContent.appendChild(chartCanvas);
-                    renderWeightChart(chartCanvas, sortedWeights);
-                }
-                // ALWAYS show the list of weights
-                const weightListContainer = document.createElement('div');
-                weightListContainer.className = 'space-y-2';
-                weightListContainer.innerHTML = sortedWeights.map(w =>
-                    `<div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                        <p class="font-semibold">${w.grams} g</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(w.timestamp).format('MMM D, YYYY, HH:mm')}</p>
-                    </div>`
-                ).join('');
-                historyContent.appendChild(weightListContainer);
-            } else {
-                historyContent.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No weight history found.</p>';
-            }
-
-            // Section 2: Feeding History
-            historyContent.innerHTML += `<h3 class="text-xl font-bold mt-8 mb-4">Feeding History</h3>`;
+            historyContent.innerHTML = '';
+            // Feeding History (Collapsible)
+            historyContent.innerHTML += `<h3 class="text-xl font-bold mb-4">Feeding History</h3>`;
             const sortedFeedings = [...allFeedings].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-            const groupedByDate = sortedFeedings.reduce((acc, feed) => {
-                const date = dayjs(feed.timestamp).format('YYYY-MM-DD');
-                if (!acc[date]) acc[date] = []; acc[date].push(feed); return acc;
-            }, {});
+            const groupedByDate = sortedFeedings.reduce((acc, feed) => { const date = dayjs(feed.timestamp).format('YYYY-MM-DD'); if (!acc[date]) acc[date] = []; acc[date].push(feed); return acc; }, {});
             const sortedDates = Object.keys(groupedByDate).sort().reverse();
-            if (sortedDates.length === 0) {
-                historyContent.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No feeding history found.</p>';
-            } else {
-                historyContent.innerHTML += sortedDates.map(date => {
+            const todayStr = dayjs().format('YYYY-MM-DD');
+            if (sortedDates.length === 0) { historyContent.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No feeding history found.</p>'; }
+            else {
+                const feedingHistoryHTML = sortedDates.map(date => {
+                    const isToday = (date === todayStr);
                     const dayTotal = groupedByDate[date].reduce((sum, feed) => sum + feed.amount, 0);
-                    return `<div class="mb-6"><div class="mb-2"><h4 class="font-bold text-lg">${dayjs(date).format('dddd, MMMM D')}</h4><p class="text-sm text-gray-500 dark:text-gray-400">Total: ${dayTotal} ml (${groupedByDate[date].length} feedings)</p></div><div class="space-y-2">${groupedByDate[date].map(createFeedingHTML).join('')}</div></div>`;
+                    const headerHTML = `<div class="history-day-header flex justify-between items-center p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg cursor-pointer select-none"><div><h4 class="font-bold">${dayjs(date).format('dddd, MMMM D')}</h4><p class="text-sm text-gray-500 dark:text-gray-400">Total: ${dayTotal} ml (${groupedByDate[date].length} feedings)</p></div><span class="arrow-icon" style="transform: ${isToday ? 'rotate(0deg)' : 'rotate(-90deg)'};">${chevronDownIcon}</span></div>`;
+                    const contentHTML = `<div class="history-day-content ml-3 mt-2 pl-3 border-l-2 border-gray-200 dark:border-gray-600" style="${isToday ? 'display: block;' : 'display: none;'}"><div class="space-y-2">${groupedByDate[date].map(createFeedingHTML).join('')}</div></div>`;
+                    return `<div class="mb-2">${headerHTML}${contentHTML}</div>`;
                 }).join('');
+                historyContent.innerHTML += feedingHistoryHTML;
             }
-             document.getElementById('history-modal').style.display = 'flex';
+            // Weight History (Table)
+            historyContent.innerHTML += `<h3 class="text-xl font-bold mt-8 mb-4">Weight History</h3>`;
+            const sortedWeights = [...allWeights].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            if (sortedWeights.length > 0) {
+                if (sortedWeights.length > 1) { const chartCanvas = document.createElement('canvas'); chartCanvas.style.marginBottom = '20px'; historyContent.appendChild(chartCanvas); renderWeightChart(chartCanvas, sortedWeights); }
+                const tableHTML = `<div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"><tr><th scope="col" class="px-4 py-3">Date</th><th scope="col" class="px-4 py-3">Time</th><th scope="col" class="px-4 py-3 text-right">Weight</th></tr></thead><tbody>` +
+                    sortedWeights.map(w => `<tr class="border-b dark:border-gray-700"><td class="px-4 py-3">${dayjs(w.timestamp).format('MMM D, YYYY')}</td><td class="px-4 py-3">${dayjs(w.timestamp).format('HH:mm')}</td><td class="px-4 py-3 font-medium text-right">${w.grams} g</td></tr>`).join('') + `</tbody></table></div>`;
+                historyContent.innerHTML += tableHTML;
+            } else { historyContent.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No weight history found.</p>'; }
+            document.getElementById('history-modal').style.display = 'flex';
         }
         function renderWeightChart(canvas, weights) {
             if (weightChart) weightChart.destroy();
@@ -243,61 +171,123 @@
             weightChart = new Chart(canvas, { type: 'line', data: { labels: chartData.map(w => dayjs(w.timestamp).format('MMM D')), datasets: [{ label: 'Weight (g)', data: chartData.map(w => w.grams), borderColor: '#ec4899', tension: 0.1 }] } });
         }
         
-        // --- MAIN FUNCTION AND EVENT LISTENERS (RESTRUCTURED) ---
-        function main() {
-            // --- Get all DOM elements first ---
-            const babyNameEl = document.getElementById('baby-name'), ageInDaysEl = document.getElementById('age-in-days'),
-              feedingForm = document.getElementById('feeding-form'), amountInput = document.getElementById('amount'),
-              amountValueEl = document.getElementById('amount-value'), notesInput = document.getElementById('notes'),
-              weightForm = document.getElementById('weight-form'), weightInput = document.getElementById('weight-grams'),
-              viewHistoryBtn = document.getElementById('view-history-btn'), closeHistoryBtn = document.getElementById('close-history-btn'),
-              editForm = document.getElementById('edit-form'), deleteBtn = document.getElementById('delete-btn'),
-              cancelEditBtn = document.getElementById('cancel-edit-btn'), insightSection = document.getElementById('insight-section'),
-              openInsightBtn = document.getElementById('open-insight-btn'), closeInsightBtn = document.getElementById('close-insight-btn'),
-              themeToggleBtn = document.getElementById('theme-toggle'), latestWeightCard = document.getElementById('latest-weight-card'),
-              closeWeightBtn = document.getElementById('close-weight-btn'), weightModal = document.getElementById('weight-modal'),
-              editModal = document.getElementById('edit-modal'), insightDetailModal = document.getElementById('insight-detail-modal');
-
-            // --- Initial UI Setup ---
-            babyNameEl.textContent = BABY_NAME;
-            openInsightBtn.innerHTML = lightbulbIcon;
-            setupTheme();
-            amountValueEl.textContent = `${amountInput.value} ml`;
-
-            // --- Attach all event listeners here to ensure DOM is ready ---
-            if (themeToggleBtn) {
-                themeToggleBtn.addEventListener('click', toggleTheme);
-            } else { console.error("Theme toggle button not found!"); }
-
-            const openModalOnClick = () => { const txt = insightSection.dataset.expandedText; if (txt) { insightDetailModal.style.display = 'flex'; document.getElementById('insight-detail-content').textContent = txt; } };
-            if (openInsightBtn) { openInsightBtn.addEventListener('click', openModalOnClick); } else { console.error("Insight button not found!"); }
-            if (insightSection) { insightSection.addEventListener('click', openModalOnClick); }
-
-            if (feedingForm) feedingForm.addEventListener('submit', (e) => { e.preventDefault(); saveData({ type: 'feeding', amount: parseInt(amountInput.value), notes: notesInput.value.trim() }).then(() => { feedingForm.reset(); amountValueEl.textContent = `100 ml`; }); });
-            if (weightForm) weightForm.addEventListener('submit', (e) => { e.preventDefault(); if (!weightInput.value) return; saveData({ type: 'weight', grams: parseInt(weightInput.value) }).then(() => { weightForm.reset(); weightModal.style.display = 'none'; }); });
-            if (amountInput) amountInput.addEventListener('input', (e) => amountValueEl.textContent = `${e.target.value} ml`);
-            if (ageInDaysEl) ageInDaysEl.addEventListener('click', () => { currentAgeFormatIndex = (currentAgeFormatIndex + 1) % ageFormats.length; calculateAndDisplayAge(); });
-            
-            // Modal Buttons
-            if (viewHistoryBtn) viewHistoryBtn.addEventListener('click', showHistory);
-            if (closeHistoryBtn) closeHistoryBtn.addEventListener('click', () => document.getElementById('history-modal').style.display = 'none');
-            if (latestWeightCard) latestWeightCard.addEventListener('click', () => weightModal.style.display = 'flex');
-            if (closeWeightBtn) closeWeightBtn.addEventListener('click', () => weightModal.style.display = 'none');
-            if (closeInsightBtn) closeInsightBtn.addEventListener('click', () => insightDetailModal.style.display = 'none');
-            if (cancelEditBtn) cancelEditBtn.addEventListener('click', () => editModal.style.display = 'none');
-
-            // Edit/Delete Form
-            if (editForm) editForm.addEventListener('submit', (e) => { e.preventDefault(); if (!editForm.checkValidity()) return; const id = document.getElementById('edit-id').value, amount = document.getElementById('edit-amount').value, notes = document.getElementById('edit-notes').value; saveData({ type: 'editFeeding', id, amount: parseInt(amount), notes }).then(() => editModal.style.display = 'none'); });
-            if (deleteBtn) deleteBtn.addEventListener('click', () => { if (!confirm('Are you sure?')) return; saveData({ type: 'deleteFeeding', id: document.getElementById('edit-id').value }).then(() => editModal.style.display = 'none'); });
-            document.body.addEventListener('click', (e) => { const btn = e.target.closest('.edit-btn'); if (btn) { editModal.style.display = 'flex'; document.getElementById('edit-id').value = btn.dataset.id; document.getElementById('edit-amount').value = btn.dataset.amount; document.getElementById('edit-notes').value = btn.dataset.notes; } });
-            
-            // --- Initial Data Load ---
-            loadData();
-            const calculateAndDisplayAge = () => { const birthDate = dayjs(BABY_BIRTHDAY), now = dayjs(); let ageText; if (now.isBefore(birthDate)) { ageText = `Arriving in ${birthDate.fromNow(true)}!`; } else { const format = ageFormats[currentAgeFormatIndex]; switch (format) { case 'months-days': const m=now.diff(birthDate,'month'); ageText=`${m}m, ${now.diff(birthDate.add(m,'month'),'day')}d`; break; case 'weeks-days': const d=now.diff(birthDate,'day'); ageText=`${Math.floor(d/7)}w, ${d%7}d`; break; default: ageText=`${now.diff(birthDate,'day')} days old`; break; } } ageInDaysEl.textContent = ageText; };
+        // --- EVENT HANDLERS & DYNAMIC FUNCTIONS ---
+        function calculateAndDisplayAge() {
+            const ageInDaysEl = document.getElementById('age-in-days');
+            if (!ageInDaysEl) return;
+            const birthDate = dayjs(BABY_BIRTHDAY);
+            const now = dayjs();
+            let ageText = '';
+            if (now.isBefore(birthDate)) { ageInDaysEl.textContent = `Arriving in ${birthDate.fromNow(true)}!`; return; }
+            const format = ageFormats[currentAgeFormatIndex];
+            switch (format) {
+                case 'months-days': const m=now.diff(birthDate,'month'); ageText=`${m}m, ${now.diff(birthDate.add(m,'month'),'day')}d`; break;
+                case 'weeks-days': const d=now.diff(birthDate,'day'); ageText=`${Math.floor(d/7)}w, ${d%7}d`; break;
+                case 'hours': ageText=`${now.diff(birthDate,'hour').toLocaleString()} hours`; break;
+                case 'minutes': ageText=`${now.diff(birthDate,'minute').toLocaleString()} minutes`; break;
+                case 'seconds': ageText=`${now.diff(birthDate,'second').toLocaleString()} seconds`; break;
+                default: ageText=`${now.diff(birthDate,'day')} days old`; break;
+            }
+            ageInDaysEl.textContent = ageText;
+        }
+        function handleAgeClick() {
+            currentAgeFormatIndex = (currentAgeFormatIndex + 1) % ageFormats.length;
             calculateAndDisplayAge();
+            clearInterval(ageUpdateInterval);
+            if (ageFormats[currentAgeFormatIndex] === 'seconds') {
+                ageUpdateInterval = setInterval(calculateAndDisplayAge, 1000);
+            }
         }
 
-        document.addEventListener('DOMContentLoaded', main);
+        // --- THEME HANDLER (FIXED) ---
+const applyTheme = (theme) => {
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        if (themeToggleBtn) themeToggleBtn.innerHTML = sunIcon;
+    } else {
+        document.documentElement.classList.remove('dark');
+        if (themeToggleBtn) themeToggleBtn.innerHTML = moonIcon;
+    }
+};
+
+function setupTheme() {
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const toggleTheme = () => {
+        const isCurrentlyDark = document.documentElement.classList.contains('dark');
+        const newTheme = isCurrentlyDark ? 'light' : 'dark';
+        localStorage.setItem('theme', newTheme);
+        applyTheme(newTheme);
+    };
+
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(savedTheme || (systemPrefersDark ? 'dark' : 'light'));
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', toggleTheme);
+    } else {
+        console.error("CRITICAL: Theme toggle button not found in DOM.");
+    }
+}
+
+
+        // --- MAIN INITIALIZATION SCRIPT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get all static elements
+            const elements = {
+                babyName: document.getElementById('baby-name'),
+                openInsightBtn: document.getElementById('open-insight-btn'),
+                amountInput: document.getElementById('amount'),
+                amountValue: document.getElementById('amount-value'),
+                feedingForm: document.getElementById('feeding-form'),
+                notesInput: document.getElementById('notes'),
+                weightForm: document.getElementById('weight-form'),
+                weightInput: document.getElementById('weight-grams'),
+                latestWeightCard: document.getElementById('latest-weight-card'),
+                ageInDays: document.getElementById('age-in-days'),
+                viewHistoryBtn: document.getElementById('view-history-btn'),
+                closeHistoryBtn: document.getElementById('close-history-btn'),
+                historyContent: document.getElementById('history-content'),
+                closeWeightBtn: document.getElementById('close-weight-btn'),
+                closeInsightBtn: document.getElementById('close-insight-btn'),
+                cancelEditBtn: document.getElementById('cancel-edit-btn'),
+                deleteBtn: document.getElementById('delete-btn'),
+                editForm: document.getElementById('edit-form'),
+            };
+
+            // Setup UI text and icons
+            elements.babyName.textContent = BABY_NAME;
+            elements.amountValue.textContent = `${elements.amountInput.value} ml`;
+            elements.openInsightBtn.innerHTML = lightbulbIcon;
+            
+            // Setup core functionalities that don't depend on data
+            setupTheme();
+            calculateAndDisplayAge();
+            
+            // Attach all event listeners
+            elements.ageInDays.addEventListener('click', handleAgeClick);
+            const openModalOnClick = () => { const insightSection = document.getElementById('insight-section'); const txt = insightSection.dataset.expandedText; if (txt) { document.getElementById('insight-detail-modal').style.display = 'flex'; document.getElementById('insight-detail-content').textContent = txt; } };
+            elements.openInsightBtn.addEventListener('click', openModalOnClick);
+            elements.amountInput.addEventListener('input', (e) => elements.amountValue.textContent = `${e.target.value} ml`);
+            elements.feedingForm.addEventListener('submit', (e) => { e.preventDefault(); saveData({ type: 'feeding', amount: parseInt(elements.amountInput.value), notes: elements.notesInput.value.trim() }).then(() => { elements.feedingForm.reset(); elements.amountValue.textContent = `100 ml`; }); });
+            elements.weightForm.addEventListener('submit', (e) => { e.preventDefault(); if (!elements.weightInput.value) return; saveData({ type: 'weight', grams: parseInt(elements.weightInput.value) }).then(() => { elements.weightForm.reset(); document.getElementById('weight-modal').style.display = 'none'; }); });
+            elements.viewHistoryBtn.addEventListener('click', showHistory);
+            elements.latestWeightCard.addEventListener('click', () => document.getElementById('weight-modal').style.display = 'flex');
+            elements.closeHistoryBtn.addEventListener('click', () => document.getElementById('history-modal').style.display = 'none');
+            elements.closeWeightBtn.addEventListener('click', () => document.getElementById('weight-modal').style.display = 'none');
+            elements.closeInsightBtn.addEventListener('click', () => document.getElementById('insight-detail-modal').style.display = 'none');
+            elements.cancelEditBtn.addEventListener('click', () => document.getElementById('edit-modal').style.display = 'none');
+            elements.historyContent.addEventListener('click', (e) => { const header = e.target.closest('.history-day-header'); if (!header) return; const content = header.nextElementSibling; const arrow = header.querySelector('.arrow-icon svg'); if (content) { const isVisible = content.style.display !== 'none'; content.style.display = isVisible ? 'none' : 'block'; if(arrow) { arrow.style.transform = isVisible ? 'rotate(-90deg)' : 'rotate(0deg)'; } } });
+            
+            // Delegated listener for edit buttons
+            document.body.addEventListener('click', (e) => { const btn = e.target.closest('.edit-btn'); if (btn) { const editModal = document.getElementById('edit-modal'); editModal.style.display = 'flex'; document.getElementById('edit-id').value = btn.dataset.id; document.getElementById('edit-amount').value = btn.dataset.amount; document.getElementById('edit-notes').value = btn.dataset.notes; } });
+            elements.editForm.addEventListener('submit', (e) => { e.preventDefault(); if (!elements.editForm.checkValidity()) return; const id = document.getElementById('edit-id').value, amount = document.getElementById('edit-amount').value, notes = document.getElementById('edit-notes').value; saveData({ type: 'editFeeding', id, amount: parseInt(amount), notes }).then(() => document.getElementById('edit-modal').style.display = 'none'); });
+            elements.deleteBtn.addEventListener('click', () => { if (!confirm('Are you sure?')) return; saveData({ type: 'deleteFeeding', id: document.getElementById('edit-id').value }).then(() => document.getElementById('edit-modal').style.display = 'none'); });
+
+            // Initial data load
+            loadData();
+        });
     </script>
 </body>
 </html>
