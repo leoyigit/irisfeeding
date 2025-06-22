@@ -10,57 +10,46 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/relativeTime.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/customParseFormat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/plugin/isSameOrBefore.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none; width: 24px; height: 24px;
-            background: #ec4899; cursor: pointer; border-radius: 50%;
-        }
-        input[type=range]::-moz-range-thumb {
-            width: 24px; height: 24px; background: #ec4899; cursor: pointer; border-radius: 50%;
-        }
-        #history-modal, #loading-overlay, #edit-modal, #insight-detail-modal { display: none; }
-        #age-in-days, #insight-section {
-            cursor: pointer;
-            user-select: none;
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; background: #ec4899; cursor: pointer; border-radius: 50%; }
+        #history-modal, #loading-overlay, #edit-modal, #insight-detail-modal, #weight-modal { display: none; }
+        #age-in-days, #insight-section, #latest-weight-card { cursor: pointer; user-select: none; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
 
-    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-        <div class="text-white text-lg">Saving...</div>
-    </div>
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center"><div class="text-white text-lg">Saving...</div></div>
 
     <div id="app-container" class="max-w-md mx-auto p-4 min-h-screen">
-        <div class="text-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
-            <h1 id="baby-name" class="text-3xl font-bold text-pink-500">Iris</h1>
-            <p id="age-in-days" class="text-lg text-gray-500 dark:text-gray-400 mt-1" title="Click to change format">Calculating age...</p>
+        <div class="flex justify-between items-center text-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
+            <button id="open-insight-btn" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700" title="Show Daily Insight"></button>
+            <div>
+                <h1 id="baby-name" class="text-3xl font-bold text-pink-500"></h1>
+                <p id="age-in-days" class="text-lg text-gray-500 dark:text-gray-400 mt-1" title="Click to change format"></p>
+            </div>
+            <button id="theme-toggle" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700" title="Toggle Dark/Light Mode"></button>
         </div>
-
-        <div id="insight-section" class="bg-pink-800 dark:bg-pink-900 border border-pink-500 dark:border-pink-500 rounded-xl shadow-lg p-4 mb-6 transition hover:bg-pink-700" style="display: none;" title="Click to read more">
+        <div id="insight-section" class="bg-pink-800 dark:bg-pink-900 border border-pink-500 rounded-xl shadow-lg p-4 mb-6 transition hover:bg-pink-700" style="display: none;" title="Click to read more">
             <h3 class="text-lg font-semibold text-white dark:text-pink-100 mb-2">✨ Daily Insight</h3>
-            <p id="daily-insight-text" class="text-sm text-white/90 dark:text-pink-200">Loading today's tip...</p>
+            <p id="daily-insight-text" class="text-sm text-white/90 dark:text-pink-200"></p>
         </div>
-
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 grid grid-cols-2 gap-4 text-center">
             <div>
                 <h2 class="text-xl font-semibold mb-1">Today's Total</h2>
-                <p id="total-today" class="text-3xl font-bold text-pink-500">Updating...</p>
-                <p id="total-summary-subtitle" class="text-sm text-gray-500 dark:text-gray-400">Please wait</p>
+                <p id="total-today" class="text-3xl font-bold text-pink-500"></p>
+                <p id="total-summary-subtitle" class="text-sm text-gray-500 dark:text-gray-400"></p>
             </div>
-             <div>
+            <div id="latest-weight-card" class="transition hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg p-2 -m-2">
                 <h2 class="text-xl font-semibold mb-1">Latest Weight</h2>
-                <p id="latest-weight" class="text-3xl font-bold text-pink-500">Updating...</p>
-                 <p class="text-sm text-gray-500 dark:text-gray-400" id="latest-weight-date">Please wait</p>
+                <p id="latest-weight" class="text-3xl font-bold text-pink-500"></p>
+                 <p class="text-sm text-gray-500 dark:text-gray-400" id="latest-weight-date"></p>
             </div>
         </div>
-
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4 text-center">Add New Feeding</h2>
             <form id="feeding-form" class="space-y-4">
@@ -69,382 +58,246 @@
                     <input type="range" id="amount" name="amount" min="10" max="200" step="10" value="100" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer mt-2">
                 </div>
                 <div>
-                    <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes (Optional)</label>
-                    <input type="text" id="notes" name="notes" class="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-pink-500 focus:border-pink-500 sm:text-sm p-3" placeholder="e.g., a little fussy">
+                    <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
+                    <input type="text" id="notes" name="notes" class="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm p-3" placeholder="e.g., a little fussy">
                 </div>
-                <button type="submit" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Add Feeding</button>
+                <button type="submit" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-lg">Add Feeding</button>
             </form>
         </div>
-        
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
-            <h2 class="text-xl font-semibold mb-4 text-center">Log Weight</h2>
-            <form id="weight-form" class="flex items-center space-x-2">
-                 <input type="number" id="weight-grams" required class="block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-pink-500 focus:border-pink-500 sm:text-sm p-3" placeholder="Weight in grams">
-                 <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Save</button>
-            </form>
-        </div>
-
         <div>
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-center">Today's Logs</h2>
-                <button id="view-history-btn" class="text-sm text-pink-500 font-semibold hover:underline">View History</button>
-            </div>
-            <div id="feedings-list" class="space-y-3">
-                <p id="loading-state" class="text-center text-gray-500">Loading entries...</p>
-            </div>
-        </div>
-    </div>
-    
-    <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] m-4 flex flex-col">
-            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
-                <h2 class="text-xl font-bold">Full History</h2>
-                <button id="close-history-btn" class="text-gray-500 hover:text-gray-900 dark:hover:text-white text-2xl leading-none">&times;</button>
-            </div>
-            <div id="history-content" class="p-6 overflow-y-auto">
-                <p>Loading history...</p>
-            </div>
+            <div class="flex justify-between items-center mb-4"><h2 class="text-xl font-semibold">Today's Logs</h2><button id="view-history-btn" class="text-sm text-pink-500 font-semibold hover:underline">View History</button></div>
+            <div id="feedings-list" class="space-y-3"><p id="loading-state" class="text-center text-gray-500">Loading entries...</p></div>
         </div>
     </div>
 
-    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm m-4">
-            <form id="edit-form" novalidate>
-                <div class="p-4 border-b dark:border-gray-700">
-                    <h2 id="edit-modal-title" class="text-xl font-bold">Edit Feeding</h2>
-                </div>
-                <div class="p-6 space-y-4">
-                    <input type="hidden" id="edit-id">
-                    <div>
-                        <label for="edit-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount (ml)</label>
-                        <input type="number" id="edit-amount" required class="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-pink-500 focus:border-pink-500 sm:text-sm p-3">
-                    </div>
-                    <div>
-                        <label for="edit-notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes (Optional)</label>
-                        <input type="text" id="edit-notes" class="mt-1 block w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-pink-500 focus:border-pink-500 sm:text-sm p-3">
-                    </div>
-                </div>
-                <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-between items-center">
-                    <button type="button" id="delete-btn" class="text-sm font-semibold text-red-500 hover:text-red-700">Delete Entry</button>
-                    <div>
-                        <button type="button" id="cancel-edit-btn" class="px-4 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 mr-2">Cancel</button>
-                        <button type="submit" class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Save Changes</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <div id="insight-detail-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg m-4 max-h-[90vh] flex flex-col">
-            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
-                <h2 class="text-xl font-bold">Today's Insight</h2>
-                <button id="close-insight-btn" class="text-gray-500 hover:text-gray-900 dark:hover:text-white text-2xl leading-none">&times;</button>
-            </div>
-            <div class="p-6 overflow-y-auto">
-                <p id="insight-detail-content" class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap"></p>
-            </div>
-        </div>
-    </div>
-
+    <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center"><div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] m-4 flex flex-col"><div class="p-4 border-b dark:border-gray-700 flex justify-between items-center"><h2 class="text-xl font-bold">Full History</h2><button id="close-history-btn" class="text-gray-500 hover:text-gray-900 dark:hover:text-white text-2xl leading-none">&times;</button></div><div id="history-content" class="p-6 overflow-y-auto"></div></div></div>
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center"><div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm m-4"><form id="edit-form" novalidate><div class="p-4 border-b dark:border-gray-700"><h2 class="text-xl font-bold">Edit Feeding</h2></div><div class="p-6 space-y-4"><input type="hidden" id="edit-id"><div><label for="edit-amount" class="block text-sm font-medium">Amount (ml)</label><input type="number" id="edit-amount" required class="mt-1 block w-full bg-gray-100 dark:bg-gray-700 rounded-md p-3"></div><div><label for="edit-notes" class="block text-sm font-medium">Notes</label><input type="text" id="edit-notes" class="mt-1 block w-full bg-gray-100 dark:bg-gray-700 rounded-md p-3"></div></div><div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-between items-center"><button type="button" id="delete-btn" class="text-sm font-semibold text-red-500 hover:text-red-700">Delete</button><div><button type="button" id="cancel-edit-btn" class="px-4 py-2 rounded-lg mr-2">Cancel</button><button type="submit" class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-lg">Save</button></div></div></form></div></div>
+    <div id="insight-detail-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center"><div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg m-4 max-h-[90vh] flex flex-col"><div class="p-4 border-b dark:border-gray-700 flex justify-between items-center"><h2 class="text-xl font-bold">Today's Insight</h2><button id="close-insight-btn" class="text-gray-500 hover:text-gray-900 dark:hover:text-white text-2xl leading-none">&times;</button></div><div class="p-6 overflow-y-auto"><p id="insight-detail-content" class="whitespace-pre-wrap"></p></div></div></div>
+    <div id="weight-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center"><div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm m-4"><div class="p-4 border-b dark:border-gray-700 flex justify-between items-center"><h2 class="text-xl font-bold">Log New Weight</h2><button id="close-weight-btn" class="text-gray-500 hover:text-gray-900 dark:hover:text-white text-2xl leading-none">&times;</button></div><div class="p-6"><form id="weight-form" class="flex items-center space-x-2"><input type="number" id="weight-grams" required class="block w-full bg-gray-100 dark:bg-gray-700 rounded-md p-3" placeholder="Weight in grams"><button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg">Save</button></form></div></div></div>
 
     <script type="module">
         // --- CONFIGURATION ---
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxipmzIIBaq1ulu0wpxLc1lYEH5LCDxFUyq85qvHjD7csyikBdfCYLpBqG5SnZul1Sg/exec';
-
         const BABY_BIRTHDAY = '2025-05-03T00:20:00';
         const BABY_NAME = 'Iris';
-        
+
         dayjs.extend(window.dayjs_plugin_relativeTime);
         dayjs.extend(window.dayjs_plugin_customParseFormat);
+        dayjs.extend(window.dayjs_plugin_isSameOrBefore);
 
-        // --- DOM ELEMENTS ---
-        const babyNameEl = document.getElementById('baby-name');
-        const ageInDaysEl = document.getElementById('age-in-days');
-        const feedingForm = document.getElementById('feeding-form');
-        const amountInput = document.getElementById('amount');
-        const amountValueEl = document.getElementById('amount-value');
-        const notesInput = document.getElementById('notes');
-        const feedingsList = document.getElementById('feedings-list');
-        const totalTodayEl = document.getElementById('total-today');
-        const totalSummarySubtitleEl = document.getElementById('total-summary-subtitle');
-        const loadingStateEl = document.getElementById('loading-state');
-        const weightForm = document.getElementById('weight-form');
-        const weightInput = document.getElementById('weight-grams');
-        const latestWeightEl = document.getElementById('latest-weight');
-        const latestWeightDateEl = document.getElementById('latest-weight-date');
-        const historyModal = document.getElementById('history-modal');
-        const viewHistoryBtn = document.getElementById('view-history-btn');
-        const closeHistoryBtn = document.getElementById('close-history-btn');
-        const historyContent = document.getElementById('history-content');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const editModal = document.getElementById('edit-modal');
-        const editForm = document.getElementById('edit-form');
-        const editIdInput = document.getElementById('edit-id');
-        const editAmountInput = document.getElementById('edit-amount');
-        const editNotesInput = document.getElementById('edit-notes');
-        const cancelEditBtn = document.getElementById('cancel-edit-btn');
-        const deleteBtn = document.getElementById('delete-btn');
-        const insightSection = document.getElementById('insight-section');
-        const insightTextEl = document.getElementById('daily-insight-text');
-        const insightDetailModal = document.getElementById('insight-detail-modal');
-        const insightDetailContent = document.getElementById('insight-detail-content');
-        const closeInsightBtn = document.getElementById('close-insight-btn');
-        
-        let allFeedings = [];
-        let allWeights = [];
-        let allTips = [];
-        const ageFormats = ['days', 'months-days', 'weeks-days', 'hours', 'minutes', 'seconds'];
+        let allFeedings = [], allWeights = [], allTips = [], weightChart = null;
+        const ageFormats = ['days', 'months-days', 'weeks-days'];
         let currentAgeFormatIndex = 0;
 
-        // --- INITIALIZATION ---
-        function main() {
-            if (!SCRIPT_URL || SCRIPT_URL.includes("YOUR_APPS_SCRIPT_URL")) {
-                document.getElementById('app-container').innerHTML = `<div class="p-4 bg-red-100 border-l-4 border-red-500 text-red-700"><p class="font-bold">Configuration Needed</p><p>Please paste your Google Apps Script URL into the SCRIPT_URL variable.</p></div>`;
-                return;
-            }
-            babyNameEl.textContent = BABY_NAME;
-            calculateAndDisplayAge();
-            setInterval(calculateAndDisplayAge, 1000 * 60);
-            amountValueEl.textContent = `${amountInput.value} ml`;
-            loadData();
-        }
+        const sunIcon = `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>`;
+        const moonIcon = `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>`;
+        const lightbulbIcon = `<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>`;
 
-        // --- Age Calculation ---
-        function calculateAndDisplayAge() {
-            const birthDate = dayjs(BABY_BIRTHDAY);
-            const now = dayjs();
-            if (now.isBefore(birthDate)) {
-                ageInDaysEl.textContent = `Arriving in ${birthDate.fromNow(true)}!`;
-                return;
+        // --- THEME HANDLING ---
+        const applyTheme = (theme) => {
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                if (themeToggleBtn) themeToggleBtn.innerHTML = sunIcon;
+            } else {
+                document.documentElement.classList.remove('dark');
+                if (themeToggleBtn) themeToggleBtn.innerHTML = moonIcon;
             }
-            let ageText = '';
-            const format = ageFormats[currentAgeFormatIndex];
-            switch (format) {
-                case 'months-days': const m=now.diff(birthDate,'month'); ageText=`${m} month${m!==1?'s':''}, ${now.diff(birthDate.add(m,'month'),'day')} day${now.diff(birthDate.add(m,'month'),'day')!==1?'s':''}`; break;
-                case 'weeks-days': const d=now.diff(birthDate,'day'); ageText=`${Math.floor(d/7)} week${Math.floor(d/7)!==1?'s':''}, ${d%7} day${d%7!==1?'s':''}`; break;
-                case 'hours': ageText=`${now.diff(birthDate,'hour').toLocaleString()} hours`; break;
-                case 'minutes': ageText=`${now.diff(birthDate,'minute').toLocaleString()} minutes`; break;
-                case 'seconds': ageText=`${now.diff(birthDate,'second').toLocaleString()} seconds`; break;
-                default: ageText=`${now.diff(birthDate,'day')} days old`; break;
-            }
-            ageInDaysEl.textContent = ageText;
-        }
-        
-        // --- DATA HANDLING ---
+        };
+        const toggleTheme = () => {
+            const currentTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+            localStorage.setItem('theme', currentTheme);
+            applyTheme(currentTheme);
+        };
+        const setupTheme = () => {
+            const savedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            applyTheme(savedTheme || (systemPrefersDark ? 'dark' : 'light'));
+        };
+
+        // --- ASYNC DATA OPERATIONS ---
         async function loadData() {
             try {
                 const response = await fetch(SCRIPT_URL);
-                if (!response.ok) throw new Error(`Server responded with status ${response.status}. Check script deployment permissions.`);
+                if (!response.ok) throw new Error(`Server responded with status ${response.status}.`);
                 const data = await response.json();
-                if (data.error) throw new Error(data.error);
                 allFeedings = data.feedings || [];
                 allWeights = data.weights || [];
                 allTips = data.tips || [];
                 renderAll();
             } catch (error) {
                 console.error("ERROR LOADING DATA:", error);
-                const errorHtml = `<div class="p-4 bg-red-100 border-l-4 border-red-500 text-red-700"><p class="font-bold">Could not load data from sheet.</p><p class="text-sm mt-2"><b>Error:</b> ${error.message}</p><p class="text-sm mt-2"><b>Suggestion:</b> Check your sheet tab names: 'Feedings', 'Weights', 'DailyTips'.</p></div>`;
-                document.getElementById('app-container').innerHTML = errorHtml;
+                document.getElementById('app-container').innerHTML = `<div class="p-4 bg-red-100 border-l-4 border-red-500 text-red-700"><p class="font-bold">Fatal Error</p><p>${error.message}</p></div>`;
             }
         }
-        
         async function saveData(payload) {
-            loadingOverlay.style.display = 'flex';
+            document.getElementById('loading-overlay').style.display = 'flex';
             try {
-                await fetch(SCRIPT_URL, {
-                    method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                });
-                setTimeout(loadData, 1500);
+                await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                setTimeout(() => {
+                    loadData();
+                    document.getElementById('loading-overlay').style.display = 'none';
+                }, 1500);
             } catch (error) {
                 console.error("Error saving data:", error);
-                alert("Could not save data. Check connection and setup.");
-            } finally {
-                loadingOverlay.style.display = 'none';
+                alert("Could not save data.");
+                document.getElementById('loading-overlay').style.display = 'none';
             }
         }
 
-        async function addFeedingEntry(e) {
-            e.preventDefault();
-            await saveData({ type: 'feeding', amount: parseInt(amountInput.value), notes: notesInput.value.trim() });
-            feedingForm.reset();
-            amountValueEl.textContent = `100 ml`;
-            amountInput.value = 100;
-        }
-
-        async function addWeightEntry(e) {
-            e.preventDefault();
-            if (!weightInput.value) return;
-            await saveData({ type: 'weight', grams: parseInt(weightInput.value) });
-            weightForm.reset();
-        }
-
-        // --- Modals and Edit/Delete Handlers ---
-        function openEditModal(id, amount, notes) {
-            editModal.style.display = 'flex';
-            editIdInput.value = id;
-            editAmountInput.value = amount;
-            editNotesInput.value = notes;
-        }
-
-        function openInsightModal(expandedText) {
-            insightDetailContent.textContent = expandedText;
-            insightDetailModal.style.display = 'flex';
-        }
-
-        async function handleEditSubmit(e) {
-            e.preventDefault();
-            if (!editForm.checkValidity()) return;
-            const payload = { type: 'editFeeding', id: editIdInput.value, amount: parseInt(editAmountInput.value), notes: editNotesInput.value.trim() };
-            await saveData(payload);
-            editModal.style.display = 'none';
-        }
-
-        async function handleDelete() {
-            if (!confirm('Are you sure you want to delete this entry?')) return;
-            const payload = { type: 'deleteFeeding', id: editIdInput.value };
-            await saveData(payload);
-            editModal.style.display = 'none';
-        }
-
-        // --- RENDERING ---
+        // --- UI RENDERING ---
         function renderAll() {
             renderDailyInsight();
             renderTodaysFeedings();
             renderLatestWeight();
         }
-
         function renderDailyInsight() {
-            if (!allTips || allTips.length === 0) {
-                insightSection.style.display = 'none';
-                return;
-            }
-            const birthDate = dayjs(BABY_BIRTHDAY);
+            const insightSection = document.getElementById('insight-section');
+            const insightTextEl = document.getElementById('daily-insight-text');
+            if (!allTips || allTips.length === 0) { insightSection.style.display = 'none'; return; }
             const today = dayjs();
-            const dayIndex = today.diff(birthDate, 'day');
-            let tipForToday;
-
-            if (dayIndex < 0) {
-                tipForToday = { short: "Welcome! Helpful tips will appear here once your baby arrives.", expanded: "More detailed tips will be available day-by-day after Iris is born." };
+            const tipForToday = allTips.find(tip => dayjs(tip.date).isSame(today, 'day'));
+            if (tipForToday) {
+                insightTextEl.textContent = tipForToday.short;
+                insightSection.dataset.expandedText = tipForToday.expanded || tipForToday.short;
+                insightSection.style.display = 'block';
             } else {
-                const tipIndex = dayIndex % allTips.length;
-                tipForToday = allTips[tipIndex];
+                insightSection.style.display = 'none';
             }
-            
-            insightTextEl.textContent = tipForToday.short;
-            insightSection.dataset.expandedText = tipForToday.expanded || tipForToday.short;
-            insightSection.style.display = 'block';
         }
-
-        const createFeedingHTML = (f) => `
-            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-start animate-fade-in">
-                <div>
-                    <p class="font-semibold">${f.amount} ml</p>
-                    ${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}
-                </div>
-                <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
-                    <p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('HH:mm')}</p>
-                    <button class="edit-btn p-1 text-gray-400 hover:text-blue-500" data-id="${f.timestamp}" data-amount="${f.amount}" data-notes="${f.notes || ''}" title="Edit Entry">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
-                    </button>
-                </div>
-            </div>`;
-
         function renderTodaysFeedings() {
-            const today = dayjs().format('YYYY-MM-DD');
-            const todaysFeedings = allFeedings.filter(f => dayjs(f.timestamp).format('YYYY-MM-DD') === today).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            feedingsList.innerHTML = '';
-            loadingStateEl.style.display = todaysFeedings.length === 0 ? 'block' : 'none';
-            loadingStateEl.textContent = "No feedings logged for today.";
-            let totalAmount = 0;
-            todaysFeedings.forEach(f => {
-                totalAmount += f.amount;
-                feedingsList.innerHTML += createFeedingHTML(f);
-            });
-            totalTodayEl.textContent = `${totalAmount} ml`;
-            totalSummarySubtitleEl.innerHTML = `<span id="total-count">${todaysFeedings.length}</span> feedings`;
+            const list = document.getElementById('feedings-list');
+            const totalEl = document.getElementById('total-today');
+            const subtitleEl = document.getElementById('total-summary-subtitle');
+            const todaysFeedings = allFeedings.filter(f => dayjs(f.timestamp).isSame(dayjs(), 'day')).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const totalAmount = todaysFeedings.reduce((sum, f) => sum + f.amount, 0);
+            list.innerHTML = todaysFeedings.length ? todaysFeedings.map(createFeedingHTML).join('') : `<p class="text-center text-gray-500 dark:text-gray-400">No feedings logged for today.</p>`;
+            totalEl.textContent = `${totalAmount} ml`;
+            subtitleEl.textContent = `${todaysFeedings.length} feedings`;
         }
-
         function renderLatestWeight() {
+            const weightEl = document.getElementById('latest-weight');
+            const dateEl = document.getElementById('latest-weight-date');
             if (allWeights.length > 0) {
-                const sortedWeights = allWeights.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                const latestWeight = sortedWeights[0];
-                latestWeightEl.textContent = `${latestWeight.grams} g`;
-                latestWeightDateEl.textContent = dayjs(latestWeight.timestamp).format('MMM D, HH:mm');
+                const latest = [...allWeights].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+                weightEl.textContent = `${latest.grams} g`;
+                dateEl.textContent = dayjs(latest.timestamp).format('MMM D, HH:mm');
             } else {
-                latestWeightEl.textContent = `- g`;
-                latestWeightDateEl.textContent = "No weight data";
+                weightEl.textContent = `- g`; dateEl.textContent = "No data";
             }
         }
+        const createFeedingHTML = (f) => `<div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-start animate-fade-in"><div><p class="font-semibold">${f.amount} ml</p>${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}</div><div class="flex items-center space-x-2 ml-2"><p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('HH:mm')}</p><button class="edit-btn p-1 text-gray-400 hover:text-blue-500" data-id="${f.timestamp}" data-amount="${f.amount}" data-notes="${f.notes || ''}"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/></svg></button></div></div>`;
         
+        // --- HISTORY MODAL (FIXED) ---
         function showHistory() {
-            historyModal.style.display = 'flex';
-            historyContent.innerHTML = '<p>Loading history...</p>';
-            setTimeout(() => {
-                historyContent.innerHTML = ''; 
-                historyContent.innerHTML += `<h3 class="text-xl font-bold mb-4">Feeding History</h3>`;
-                const sortedFeedings = allFeedings.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-                const groupedByDate = sortedFeedings.reduce((acc, feed) => {
-                    const date = dayjs(feed.timestamp).format('YYYY-MM-DD');
-                    if (!acc[date]) acc[date] = [];
-                    acc[date].push(feed);
-                    return acc;
-                }, {});
-                const sortedDates = Object.keys(groupedByDate).sort().reverse();
-                if (sortedDates.length === 0) {
-                    historyContent.innerHTML += '<p>No feeding history found.</p>';
-                } else {
-                    historyContent.innerHTML += sortedDates.map(date => {
-                        const dayTotal = groupedByDate[date].reduce((sum, feed) => sum + feed.amount, 0);
-                        return `<div class="mb-6"><div class="mb-2"><h4 class="font-bold text-lg">${dayjs(date).format('dddd, MMMM D')}</h4><p class="text-sm text-gray-500 dark:text-gray-400">Total: ${dayTotal} ml (${groupedByDate[date].length} feedings)</p></div><div class="space-y-2">${groupedByDate[date].map(createFeedingHTML).join('')}</div></div>`;
-                    }).join('');
+            const historyContent = document.getElementById('history-content');
+            historyContent.innerHTML = ''; // Clear previous content
+
+            // Section 1: Weight History
+            historyContent.innerHTML += `<h3 class="text-xl font-bold mb-2">Weight History</h3>`;
+            const sortedWeights = [...allWeights].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            if (sortedWeights.length > 0) {
+                // Show chart if there are 2 or more entries
+                if (sortedWeights.length > 1) {
+                    const chartCanvas = document.createElement('canvas');
+                    chartCanvas.style.marginBottom = '20px';
+                    historyContent.appendChild(chartCanvas);
+                    renderWeightChart(chartCanvas, sortedWeights);
                 }
-                historyContent.innerHTML += `<h3 class="text-xl font-bold mt-8 mb-4">Weight History</h3>`;
-                const weightContainer = document.createElement('div');
-                if (allWeights.length === 0) {
-                    weightContainer.innerHTML = '<p>No weight history found.</p>';
-                } else {
-                    const sortedWeights = allWeights.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    const weightList = document.createElement('div');
-                    weightList.className = 'border dark:border-gray-600 rounded-lg';
-                    weightList.innerHTML = sortedWeights.map(w => `<div class="border-t dark:border-gray-600 p-3 flex justify-between items-center"><p class="font-semibold">${w.grams} g</p><p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(w.timestamp).format('MMM D, HH:mm')}</p></div>`).join('');
-                    weightContainer.appendChild(weightList);
-                }
-                historyContent.appendChild(weightContainer);
-            }, 10);
+                // ALWAYS show the list of weights
+                const weightListContainer = document.createElement('div');
+                weightListContainer.className = 'space-y-2';
+                weightListContainer.innerHTML = sortedWeights.map(w =>
+                    `<div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                        <p class="font-semibold">${w.grams} g</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(w.timestamp).format('MMM D, YYYY, HH:mm')}</p>
+                    </div>`
+                ).join('');
+                historyContent.appendChild(weightListContainer);
+            } else {
+                historyContent.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No weight history found.</p>';
+            }
+
+            // Section 2: Feeding History
+            historyContent.innerHTML += `<h3 class="text-xl font-bold mt-8 mb-4">Feeding History</h3>`;
+            const sortedFeedings = [...allFeedings].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const groupedByDate = sortedFeedings.reduce((acc, feed) => {
+                const date = dayjs(feed.timestamp).format('YYYY-MM-DD');
+                if (!acc[date]) acc[date] = []; acc[date].push(feed); return acc;
+            }, {});
+            const sortedDates = Object.keys(groupedByDate).sort().reverse();
+            if (sortedDates.length === 0) {
+                historyContent.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No feeding history found.</p>';
+            } else {
+                historyContent.innerHTML += sortedDates.map(date => {
+                    const dayTotal = groupedByDate[date].reduce((sum, feed) => sum + feed.amount, 0);
+                    return `<div class="mb-6"><div class="mb-2"><h4 class="font-bold text-lg">${dayjs(date).format('dddd, MMMM D')}</h4><p class="text-sm text-gray-500 dark:text-gray-400">Total: ${dayTotal} ml (${groupedByDate[date].length} feedings)</p></div><div class="space-y-2">${groupedByDate[date].map(createFeedingHTML).join('')}</div></div>`;
+                }).join('');
+            }
+             document.getElementById('history-modal').style.display = 'flex';
+        }
+        function renderWeightChart(canvas, weights) {
+            if (weightChart) weightChart.destroy();
+            const chartData = [...weights].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+            weightChart = new Chart(canvas, { type: 'line', data: { labels: chartData.map(w => dayjs(w.timestamp).format('MMM D')), datasets: [{ label: 'Weight (g)', data: chartData.map(w => w.grams), borderColor: '#ec4899', tension: 0.1 }] } });
+        }
+        
+        // --- MAIN FUNCTION AND EVENT LISTENERS (RESTRUCTURED) ---
+        function main() {
+            // --- Get all DOM elements first ---
+            const babyNameEl = document.getElementById('baby-name'), ageInDaysEl = document.getElementById('age-in-days'),
+              feedingForm = document.getElementById('feeding-form'), amountInput = document.getElementById('amount'),
+              amountValueEl = document.getElementById('amount-value'), notesInput = document.getElementById('notes'),
+              weightForm = document.getElementById('weight-form'), weightInput = document.getElementById('weight-grams'),
+              viewHistoryBtn = document.getElementById('view-history-btn'), closeHistoryBtn = document.getElementById('close-history-btn'),
+              editForm = document.getElementById('edit-form'), deleteBtn = document.getElementById('delete-btn'),
+              cancelEditBtn = document.getElementById('cancel-edit-btn'), insightSection = document.getElementById('insight-section'),
+              openInsightBtn = document.getElementById('open-insight-btn'), closeInsightBtn = document.getElementById('close-insight-btn'),
+              themeToggleBtn = document.getElementById('theme-toggle'), latestWeightCard = document.getElementById('latest-weight-card'),
+              closeWeightBtn = document.getElementById('close-weight-btn'), weightModal = document.getElementById('weight-modal'),
+              editModal = document.getElementById('edit-modal'), insightDetailModal = document.getElementById('insight-detail-modal');
+
+            // --- Initial UI Setup ---
+            babyNameEl.textContent = BABY_NAME;
+            openInsightBtn.innerHTML = lightbulbIcon;
+            setupTheme();
+            amountValueEl.textContent = `${amountInput.value} ml`;
+
+            // --- Attach all event listeners here to ensure DOM is ready ---
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', toggleTheme);
+            } else { console.error("Theme toggle button not found!"); }
+
+            const openModalOnClick = () => { const txt = insightSection.dataset.expandedText; if (txt) { insightDetailModal.style.display = 'flex'; document.getElementById('insight-detail-content').textContent = txt; } };
+            if (openInsightBtn) { openInsightBtn.addEventListener('click', openModalOnClick); } else { console.error("Insight button not found!"); }
+            if (insightSection) { insightSection.addEventListener('click', openModalOnClick); }
+
+            if (feedingForm) feedingForm.addEventListener('submit', (e) => { e.preventDefault(); saveData({ type: 'feeding', amount: parseInt(amountInput.value), notes: notesInput.value.trim() }).then(() => { feedingForm.reset(); amountValueEl.textContent = `100 ml`; }); });
+            if (weightForm) weightForm.addEventListener('submit', (e) => { e.preventDefault(); if (!weightInput.value) return; saveData({ type: 'weight', grams: parseInt(weightInput.value) }).then(() => { weightForm.reset(); weightModal.style.display = 'none'; }); });
+            if (amountInput) amountInput.addEventListener('input', (e) => amountValueEl.textContent = `${e.target.value} ml`);
+            if (ageInDaysEl) ageInDaysEl.addEventListener('click', () => { currentAgeFormatIndex = (currentAgeFormatIndex + 1) % ageFormats.length; calculateAndDisplayAge(); });
+            
+            // Modal Buttons
+            if (viewHistoryBtn) viewHistoryBtn.addEventListener('click', showHistory);
+            if (closeHistoryBtn) closeHistoryBtn.addEventListener('click', () => document.getElementById('history-modal').style.display = 'none');
+            if (latestWeightCard) latestWeightCard.addEventListener('click', () => weightModal.style.display = 'flex');
+            if (closeWeightBtn) closeWeightBtn.addEventListener('click', () => weightModal.style.display = 'none');
+            if (closeInsightBtn) closeInsightBtn.addEventListener('click', () => insightDetailModal.style.display = 'none');
+            if (cancelEditBtn) cancelEditBtn.addEventListener('click', () => editModal.style.display = 'none');
+
+            // Edit/Delete Form
+            if (editForm) editForm.addEventListener('submit', (e) => { e.preventDefault(); if (!editForm.checkValidity()) return; const id = document.getElementById('edit-id').value, amount = document.getElementById('edit-amount').value, notes = document.getElementById('edit-notes').value; saveData({ type: 'editFeeding', id, amount: parseInt(amount), notes }).then(() => editModal.style.display = 'none'); });
+            if (deleteBtn) deleteBtn.addEventListener('click', () => { if (!confirm('Are you sure?')) return; saveData({ type: 'deleteFeeding', id: document.getElementById('edit-id').value }).then(() => editModal.style.display = 'none'); });
+            document.body.addEventListener('click', (e) => { const btn = e.target.closest('.edit-btn'); if (btn) { editModal.style.display = 'flex'; document.getElementById('edit-id').value = btn.dataset.id; document.getElementById('edit-amount').value = btn.dataset.amount; document.getElementById('edit-notes').value = btn.dataset.notes; } });
+            
+            // --- Initial Data Load ---
+            loadData();
+            const calculateAndDisplayAge = () => { const birthDate = dayjs(BABY_BIRTHDAY), now = dayjs(); let ageText; if (now.isBefore(birthDate)) { ageText = `Arriving in ${birthDate.fromNow(true)}!`; } else { const format = ageFormats[currentAgeFormatIndex]; switch (format) { case 'months-days': const m=now.diff(birthDate,'month'); ageText=`${m}m, ${now.diff(birthDate.add(m,'month'),'day')}d`; break; case 'weeks-days': const d=now.diff(birthDate,'day'); ageText=`${Math.floor(d/7)}w, ${d%7}d`; break; default: ageText=`${now.diff(birthDate,'day')} days old`; break; } } ageInDaysEl.textContent = ageText; };
+            calculateAndDisplayAge();
         }
 
-        // --- EVENT LISTENERS ---
         document.addEventListener('DOMContentLoaded', main);
-        amountInput.addEventListener('input', (e) => amountValueEl.textContent = `${e.target.value} ml`);
-        feedingForm.addEventListener('submit', addFeedingEntry);
-        weightForm.addEventListener('submit', addWeightEntry);
-        viewHistoryBtn.addEventListener('click', showHistory);
-        closeHistoryBtn.addEventListener('click', () => historyModal.style.display = 'none');
-        ageInDaysEl.addEventListener('click', () => {
-            currentAgeFormatIndex = (currentAgeFormatIndex + 1) % ageFormats.length;
-            calculateAndDisplayAge();
-        });
-        
-        document.addEventListener('click', (e) => {
-            const editButton = e.target.closest('.edit-btn');
-            if (editButton) {
-                const { id, amount, notes } = editButton.dataset;
-                openEditModal(id, amount, notes);
-            }
-        });
-        
-        insightSection.addEventListener('click', () => {
-            const expandedText = insightSection.dataset.expandedText;
-            if(expandedText) {
-                openInsightModal(expandedText);
-            }
-        });
-        closeInsightBtn.addEventListener('click', () => insightDetailModal.style.display = 'none');
-
-        editForm.addEventListener('submit', handleEditSubmit);
-        cancelEditBtn.addEventListener('click', () => editModal.style.display = 'none');
-        deleteBtn.addEventListener('click', handleDelete);
     </script>
 </body>
 </html>
