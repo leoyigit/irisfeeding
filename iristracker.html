@@ -107,6 +107,7 @@
 
         // --- GLOBAL STATE ---
         let allFeedings = [], allWeights = [], allTips = [], weightChart = null;
+        let historyDaysToShow = 7; // State for "Load More" functionality
         const ageFormats = ['days', 'months-days', 'weeks-days', 'hours', 'minutes', 'seconds'];
         let currentAgeFormatIndex = 0;
         let ageUpdateInterval = null;
@@ -124,43 +125,42 @@
                 const response = await fetch(SCRIPT_URL);
                 if (!response.ok) throw new Error(`Server responded with status ${response.status}.`);
                 const data = await response.json();
-                allFeedings = data.feedings || [];
+
+                allFeedings = (data.feedings || []).map(rawFeed => ({
+                    timestamp: rawFeed.Timestamp || rawFeed.timestamp,
+                    amount: rawFeed['Amount (ml)'] || rawFeed.amount,
+                    notes: rawFeed.Notes || rawFeed.notes
+                }));
+                
                 allWeights = data.weights || [];
                 allTips = data.tips || [];
+
                 renderAllUI();
-            } catch (error) { console.error("ERROR LOADING DATA:", error); document.getElementById('app-container').innerHTML = `<div class="p-4 bg-red-100"><p class="font-bold">Fatal Error</p><p>${error.message}</p></div>`; }
+            } catch (error) { 
+                console.error("ERROR LOADING DATA:", error); 
+                document.getElementById('app-container').innerHTML = `<div class="p-4 bg-red-100"><p class="font-bold">Fatal Error</p><p>${error.message}</p></div>`; 
+            }
         }
 
-        // --- CORRECTED saveData FUNCTION ---
         async function saveData(payload) {
             document.getElementById('loading-overlay').style.display = 'flex';
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.statusText}`);
-                }
-
+                if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
                 const result = await response.json();
-
-                if (result.result !== 'success') {
-                    throw new Error(`Script error: ${result.message}`);
-                }
+                if (result.result !== 'success') throw new Error(`Script error: ${result.message}`);
                 
-                // Reload data from the server now that we know the save was successful
                 await loadData();
 
             } catch (error) {
                 console.error("Error saving data:", error);
                 alert(`Could not save data: ${error.message}`);
             } finally {
-                // Hide the loading overlay whether the save succeeded or failed
                 document.getElementById('loading-overlay').style.display = 'none';
             }
         }
@@ -180,7 +180,7 @@
         function renderTodaysFeedings() {
             const list = document.getElementById('feedings-list'), totalEl = document.getElementById('total-today'), subtitleEl = document.getElementById('total-summary-subtitle');
             const todaysFeedings = allFeedings.filter(f => dayjs(f.timestamp).isSame(dayjs(), 'day')).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-            const totalAmount = todaysFeedings.reduce((sum, f) => sum + f.amount, 0);
+            const totalAmount = todaysFeedings.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
             list.innerHTML = todaysFeedings.length ? todaysFeedings.map(createFeedingHTML).join('') : `<p class="text-center text-gray-500 dark:text-gray-400">No feedings logged for today.</p>`;
             totalEl.textContent = `${totalAmount} ml`;
             subtitleEl.textContent = `${todaysFeedings.length} feedings`;
@@ -193,34 +193,99 @@
                 dateEl.textContent = dayjs(latest.timestamp).format('MMM D, HH:mm');
             } else { weightEl.textContent = `- g`; dateEl.textContent = "No data"; }
         }
-        const createFeedingHTML = (f) => `<div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg flex justify-between items-start animate-fade-in"><div><p class="font-semibold">${f.amount} ml</p>${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}</div><div class="flex items-center space-x-2 ml-2"><p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('HH:mm')}</p><button class="edit-btn p-1 text-gray-400 hover:text-blue-500" data-id="${f.timestamp}" data-amount="${f.amount}" data-notes="${f.notes || ''}"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/></svg></button></div></div>`;
+        const createFeedingHTML = (f) => `<div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg flex justify-between items-start animate-fade-in"><div><p class="font-semibold">${f.amount || 0} ml</p>${f.notes ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${f.notes}</p>` : ''}</div><div class="flex items-center space-x-2 ml-2"><p class="text-sm text-gray-500 dark:text-gray-400">${dayjs(f.timestamp).format('HH:mm')}</p><button class="edit-btn p-1 text-gray-400 hover:text-blue-500" data-id="${f.timestamp}" data-amount="${f.amount || 0}" data-notes="${f.notes || ''}"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/></svg></button></div></div>`;
+        
+        // MODIFIED: This function now combines monthly grouping with "Load More"
         function showHistory() {
             const historyContent = document.getElementById('history-content');
-            historyContent.innerHTML = '';
-            historyContent.innerHTML += `<h3 class="text-xl font-bold mb-4">Feeding History</h3>`;
+            historyContent.innerHTML = ''; 
+
+            const feedingHistoryContainer = document.createElement('div');
+            feedingHistoryContainer.innerHTML = `<h3 class="text-xl font-bold mb-4">Feeding History</h3>`;
+            
+            // 1. Get all feedings and unique days from the full history
             const sortedFeedings = [...allFeedings].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-            const groupedByDate = sortedFeedings.reduce((acc, feed) => { const date = dayjs(feed.timestamp).format('YYYY-MM-DD'); if (!acc[date]) acc[date] = []; acc[date].push(feed); return acc; }, {});
-            const sortedDates = Object.keys(groupedByDate).sort().reverse();
-            const todayStr = dayjs().format('YYYY-MM-DD');
-            if (sortedDates.length === 0) { historyContent.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No feeding history found.</p>'; }
-            else {
-                const feedingHistoryHTML = sortedDates.map(date => {
-                    const isToday = (date === todayStr);
-                    const dayTotal = groupedByDate[date].reduce((sum, feed) => sum + feed.amount, 0);
-                    const headerHTML = `<div class="history-day-header flex justify-between items-center p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg cursor-pointer select-none"><div><h4 class="font-bold">${dayjs(date).format('dddd, MMMM D')}</h4><p class="text-sm text-gray-500 dark:text-gray-400">Total: ${dayTotal} ml (${groupedByDate[date].length} feedings)</p></div><span class="arrow-icon" style="transform: ${isToday ? 'rotate(0deg)' : 'rotate(-90deg)'};">${chevronDownIcon}</span></div>`;
-                    const contentHTML = `<div class="history-day-content ml-3 mt-2 pl-3 border-l-2 border-gray-200 dark:border-gray-600" style="${isToday ? 'display: block;' : 'display: none;'}"><div class="space-y-2">${groupedByDate[date].map(createFeedingHTML).join('')}</div></div>`;
-                    return `<div class="mb-2">${headerHTML}${contentHTML}</div>`;
-                }).join('');
-                historyContent.innerHTML += feedingHistoryHTML;
+            const allSortedDays = [...new Set(sortedFeedings.map(f => dayjs(f.timestamp).format('YYYY-MM-DD')))];
+
+            // 2. Determine which days to show based on the "Load More" state
+            const daysToDisplay = allSortedDays.slice(0, historyDaysToShow);
+            const feedingsToDisplay = sortedFeedings.filter(f => daysToDisplay.includes(dayjs(f.timestamp).format('YYYY-MM-DD')));
+
+            // 3. Group the visible feedings by month
+            const groupedByMonth = feedingsToDisplay.reduce((acc, feed) => {
+                const monthKey = dayjs(feed.timestamp).format('YYYY-MM');
+                if (!acc[monthKey]) acc[monthKey] = [];
+                acc[monthKey].push(feed);
+                return acc;
+            }, {});
+
+            const sortedMonths = Object.keys(groupedByMonth).sort().reverse();
+
+            // 4. Render the visible data
+            if (sortedMonths.length === 0) {
+                feedingHistoryContainer.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No feeding history found.</p>';
+            } else {
+                sortedMonths.forEach(monthKey => {
+                    const monthHeader = document.createElement('h4');
+                    monthHeader.className = 'text-lg font-bold text-pink-500 pt-4 pb-2 border-b-2 border-pink-500/20 mb-3 mt-2';
+                    monthHeader.textContent = dayjs(monthKey).format('MMMM YYYY');
+                    feedingHistoryContainer.appendChild(monthHeader);
+
+                    const feedingsInMonth = groupedByMonth[monthKey];
+                    const groupedByDate = feedingsInMonth.reduce((acc, feed) => {
+                        const dayKey = dayjs(feed.timestamp).format('YYYY-MM-DD');
+                        if (!acc[dayKey]) acc[dayKey] = [];
+                        acc[dayKey].push(feed);
+                        return acc;
+                    }, {});
+
+                    const sortedDays = Object.keys(groupedByDate).sort().reverse();
+                    const todayStr = dayjs().format('YYYY-MM-DD');
+
+                    const daysHTML = sortedDays.map(dayKey => {
+                        const isToday = (dayKey === todayStr);
+                        const feedingsForDay = groupedByDate[dayKey];
+                        const dayTotal = feedingsForDay.reduce((sum, feed) => sum + (Number(feed.amount) || 0), 0);
+                        const headerHTML = `<div class="history-day-header flex justify-between items-center p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg cursor-pointer select-none"><div><h4 class="font-bold">${dayjs(dayKey).format('dddd, MMMM D')}</h4><p class="text-sm text-gray-500 dark:text-gray-400">Total: ${dayTotal} ml (${feedingsForDay.length} feedings)</p></div><span class="arrow-icon" style="transform: ${isToday ? 'rotate(0deg)' : 'rotate(-90deg)'};">${chevronDownIcon}</span></div>`;
+                        const contentHTML = `<div class="history-day-content ml-3 mt-2 pl-3 border-l-2 border-gray-200 dark:border-gray-600" style="${isToday ? 'display: block;' : 'display: none;'}"><div class="space-y-2">${feedingsForDay.map(createFeedingHTML).join('')}</div></div>`;
+                        return `<div class="mb-2">${headerHTML}${contentHTML}</div>`;
+                    }).join('');
+                    feedingHistoryContainer.innerHTML += daysHTML;
+                });
             }
-            historyContent.innerHTML += `<h3 class="text-xl font-bold mt-8 mb-4">Weight History</h3>`;
+            historyContent.appendChild(feedingHistoryContainer);
+            
+            // 5. Add "Load More" button if needed
+            if (historyDaysToShow < allSortedDays.length) {
+                const loadMoreBtn = document.createElement('button');
+                loadMoreBtn.textContent = 'Load More';
+                loadMoreBtn.className = 'w-full mt-4 bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-lg';
+                loadMoreBtn.onclick = () => {
+                    historyDaysToShow += 7;
+                    showHistory();
+                };
+                historyContent.appendChild(loadMoreBtn);
+            }
+
+            // 6. Add Weight History at the end
+            const weightHistoryContainer = document.createElement('div');
+            weightHistoryContainer.innerHTML = `<h3 class="text-xl font-bold mt-8 mb-4">Weight History</h3>`;
             const sortedWeights = [...allWeights].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             if (sortedWeights.length > 0) {
-                if (sortedWeights.length > 1) { const chartCanvas = document.createElement('canvas'); chartCanvas.style.marginBottom = '20px'; historyContent.appendChild(chartCanvas); renderWeightChart(chartCanvas, sortedWeights); }
+                if (sortedWeights.length > 1) { 
+                    const chartCanvas = document.createElement('canvas'); 
+                    chartCanvas.style.marginBottom = '20px'; 
+                    weightHistoryContainer.appendChild(chartCanvas);
+                    renderWeightChart(chartCanvas, sortedWeights); 
+                }
                 const tableHTML = `<div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"><tr><th scope="col" class="px-4 py-3">Date</th><th scope="col" class="px-4 py-3">Time</th><th scope="col" class="px-4 py-3 text-right">Weight</th></tr></thead><tbody>` +
                     sortedWeights.map(w => `<tr class="border-b dark:border-gray-700"><td class="px-4 py-3">${dayjs(w.timestamp).format('MMM D, YYYY')}</td><td class="px-4 py-3">${dayjs(w.timestamp).format('HH:mm')}</td><td class="px-4 py-3 font-medium text-right">${w.grams} g</td></tr>`).join('') + `</tbody></table></div>`;
-                historyContent.innerHTML += tableHTML;
-            } else { historyContent.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No weight history found.</p>'; }
+                weightHistoryContainer.innerHTML += tableHTML;
+            } else {
+                weightHistoryContainer.innerHTML += '<p class="text-gray-500 dark:text-gray-400">No weight history found.</p>';
+            }
+            historyContent.appendChild(weightHistoryContainer);
+
             document.getElementById('history-modal').style.display = 'flex';
         }
         function renderWeightChart(canvas, weights) {
@@ -331,8 +396,15 @@
                 e.target.reset();
                 amountValue.textContent = `100 ml`;
             });
+
             document.getElementById('age-in-days').addEventListener('click', handleAgeClick);
-            document.getElementById('view-history-btn').addEventListener('click', showHistory);
+            
+            // MODIFIED: This resets the day count before opening the modal
+            document.getElementById('view-history-btn').addEventListener('click', () => {
+                historyDaysToShow = 7;
+                showHistory();
+            });
+
             document.getElementById('close-history-btn').addEventListener('click', () => document.getElementById('history-modal').style.display = 'none');
             document.getElementById('close-insight-btn').addEventListener('click', () => document.getElementById('insight-detail-modal').style.display = 'none');
             document.getElementById('close-weight-btn').addEventListener('click', () => document.getElementById('weight-modal').style.display = 'none');
